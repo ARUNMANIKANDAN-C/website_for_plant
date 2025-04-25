@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Plant Classifier</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 20px;
+    }
+    #video {
+      width: 60%;
+      max-width: 500px;
+      border: 2px solid #ccc;
+      margin-top: 10px;
+    }
+    #output {
+      margin-top: 20px;
+      font-size: 1.2rem;
+      color: green;
+    }
+    .upload-area {
+      margin: 20px auto;
+      width: 300px;
+      height: 200px;
+      border: 2px dashed #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+    }
+    .upload-area.dragover {
+      border-color: green;
+      color: green;
+    }
+    #camera-controls {
+      margin-top: 10px;
+    }
+    select, button {
+      margin: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🌿 Plant Detector & Classifier</h1>
+
+  <div id="camera-controls">
+    <select id="cameraSelect"></select>
+    <button onclick="startCamera()">Start Live</button>
+    <button onclick="stopCamera()">Stop Live</button>
+    <button onclick="captureFrame()">Capture & Check</button>
+  </div>
+  
+  <video id="video" autoplay playsinline></video>
+
+  <div class="upload-area" id="uploadArea">
+    Drag & Drop Image Here or Click to Upload
+    <input type="file" id="imageUpload" accept="image/*" hidden>
+  </div>
+
+  <div id="output"></div>
+
+  <script>
+    const video = document.getElementById('video');
+    const cameraSelect = document.getElementById('cameraSelect');
+    const uploadArea = document.getElementById('uploadArea');
+    const imageUpload = document.getElementById('imageUpload');
+    const output = document.getElementById('output');
+    let currentStream = null;
+
+    async function getCameras() {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      cameraSelect.innerHTML = '';
+      videoDevices.forEach((device, index) => {
+        const option = document.createElement('option');
+        option.value = device.deviceId;
+        option.text = device.label || `Camera ${index + 1}`;
+        cameraSelect.appendChild(option);
+      });
+    }
+
+    async function startCamera() {
+      if (currentStream) stopCamera();
+
+      const deviceId = cameraSelect.value;
+      const constraints = {
+        video: { deviceId: deviceId ? { exact: deviceId } : undefined }
+      };
+
+      currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = currentStream;
+    }
+
+    function stopCamera() {
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        currentStream = null;
+        video.srcObject = null;
+      }
+    }
+
+    async function captureFrame() {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      canvas.toBlob(sendToModel, 'image/jpeg');
+    }
+
+    function sendToModel(blob) {
+      const formData = new FormData();
+      formData.append("file", blob, "frame.jpg");
+
+      fetch("/check_image", {
+        method: "POST",
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        output.textContent = `${data.result} (Confidence: ${data.confidence})`;
+      })
+      .catch(err => {
+        output.textContent = "Error processing image.";
+        console.error(err);
+      });
+    }
+
+    uploadArea.addEventListener('click', () => imageUpload.click());
+
+    imageUpload.addEventListener('change', () => {
+      if (imageUpload.files.length > 0) {
+        sendToModel(imageUpload.files[0]);
+      }
+    });
+
+    uploadArea.addEventListener('dragover', e => {
+      e.preventDefault();
+      uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+      uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', e => {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        sendToModel(file);
+      }
+    });
+
+    window.onload = getCameras;
+  </script>
+</body>
+</html>
