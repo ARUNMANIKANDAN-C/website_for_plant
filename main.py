@@ -63,12 +63,18 @@ async def check_image(file: UploadFile = File(...)):
         logger.debug(f"Image shape after preprocessing: {image_batch.shape}")
 
         prediction = secondary_model.predict(image_batch)[0]
+
+        # Log all class scores
+        logger.debug("All class scores:")
+        for idx, score in enumerate(prediction):
+            logger.debug(f"{idx}: {class_names[idx]} -> {score:.4f}")
+
         predicted_index = np.argmax(prediction)
         predicted_label = class_names[predicted_index]
         friendly_label = class_mapping.get(predicted_label, "Unknown")
         confidence = float(prediction[predicted_index])
 
-        logger.info(f"Prediction: {predicted_label} -> {friendly_label} (Confidence: {confidence:.2f})")
+        logger.info(f"Top Prediction: {predicted_label} -> {friendly_label} (Confidence: {confidence:.2f})")
 
         return JSONResponse({
             "result": friendly_label,
