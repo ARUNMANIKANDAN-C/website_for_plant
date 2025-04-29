@@ -30,16 +30,13 @@ The model is a TensorFlow/Keras `.h5` file trained on a dataset such as **PlantV
 
 ```
 project/
-│
-├── app/
-│   ├── templates/
-│   │   └── index.html
-│   ├── static/
-│   │   └── (CSS/JS/Image Assets)
-│
-├── model.h5                  # Pretrained Keras model
-├── main.py                   # FastAPI app (this file)
-└── README.md
+├───app
+│   ├───static
+│   │   ├───img
+│   │   └───uploads
+│   ├───templates
+│   └───__pycache__
+└───test
 ```
 
 ---
